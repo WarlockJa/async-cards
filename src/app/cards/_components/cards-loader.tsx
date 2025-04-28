@@ -1,61 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { cardsSchema } from "../lib/cardsSchema";
 import CardComponent from "./card-component";
 import CardsLoadingFallback from "./cards-loading-fallback";
+import useDelayedFetch from "../hooks/use-delayed-fetch";
+import CardsHeader from "./cards-header";
+import CardsErrorFallback from "./cards-error-fallback";
 
 export default function CardsLoader() {
-  const [data, setData] = useState<CardData[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown | null>(null);
+  const { data, error, isLoading, refetch, isDisabledRefetch } =
+    useDelayedFetch();
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let timeoutId: NodeJS.Timeout | null = null;
+  let content;
 
-    const fetchData = async () => {
-      try {
-        timeoutId = setTimeout(() => controller.abort(), 120000);
-
-        const response = await fetch(
-          "https://node-test-server-production.up.railway.app/api/cards",
-          {
-            keepalive: true,
-            signal: controller.signal,
-          }
-        );
-
-        clearTimeout(timeoutId);
-        const jsonData = await response.json();
-        const parsedData = cardsSchema.safeParse(jsonData);
-
-        if (!parsedData.success) throw parsedData.error;
-
-        setData(parsedData.data.cards);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      controller.abort();
-      timeoutId && clearTimeout(timeoutId);
-    };
-  }, []);
-
-  if (loading) return <CardsLoadingFallback />;
-  if (error) return <div>Error: {JSON.stringify(error)}</div>;
+  if (isLoading) {
+    content = <CardsLoadingFallback />;
+  } else if (error) {
+    content = <CardsErrorFallback error={error} refetch={refetch} />;
+  } else {
+    content = (
+      <ul className="flex gap-2 items-center justify-center flex-col md:flex-row flex-wrap">
+        {data?.map((card, index) => (
+          <CardComponent
+            key={index}
+            {...card}
+            className="group hover:shadow-lg"
+          />
+        ))}
+      </ul>
+    );
+  }
 
   return (
-    <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {data?.map((card) => (
-        <CardComponent key={card.title} {...card} />
-      ))}
-    </ul>
+    <div>
+      <CardsHeader refetch={refetch} isDisabledRefetch={isDisabledRefetch} />
+      {content}
+    </div>
   );
 }
