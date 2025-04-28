@@ -11,10 +11,12 @@ export default function CardsLoader() {
   const [error, setError] = useState<unknown | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const fetchData = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const response = await fetch(
           "https://node-test-server-production.up.railway.app/api/cards",
@@ -39,6 +41,11 @@ export default function CardsLoader() {
     };
 
     fetchData();
+
+    return () => {
+      controller.abort();
+      timeoutId && clearTimeout(timeoutId);
+    };
   }, []);
 
   if (loading) return <CardsLoadingFallback />;
